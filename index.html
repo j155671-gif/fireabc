@@ -241,6 +241,96 @@
 
     <!-- 遊戲邏輯腳本 -->
     <script>
+        // --- Web Audio API 音效合成系統 ---
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioCtx = new AudioContext();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // 1. 按鈕點擊音效
+        function playClickSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.08);
+            } catch(e) {}
+        }
+
+        // 2. 噴水滅火音效 (高壓水流與噓噓聲)
+        function playWaterSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                
+                // 白噪音噴水聲
+                const bufferSize = ctx.sampleRate * 0.25;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1200, ctx.currentTime);
+                filter.Q.setValueAtTime(1.5, ctx.currentTime);
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                
+                noise.start();
+                noise.stop(ctx.currentTime + 0.25);
+            } catch(e) {}
+        }
+
+        // 3. 救人/受困者成功救援音效 (歡快的升調)
+        function playRescueSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+                notes.forEach((freq, index) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.08);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime + index * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + index * 0.08 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + index * 0.08);
+                    osc.stop(ctx.currentTime + index * 0.08 + 0.15);
+                });
+            } catch(e) {}
+        }
+
         // --- 1. 車輛真實 SVG 款式與資料庫 ---
         const TRUCK_MODELS = [
             { 
@@ -405,6 +495,7 @@
 
         // --- 2. 介面與選單邏輯 ---
         function submitName() {
+            playClickSound();
             const input = document.getElementById('player-name-input').value.trim();
             if (input) playerName = input;
             document.getElementById('screen-name').classList.add('hidden');
@@ -465,6 +556,7 @@
         }
 
         function selectCar(car) {
+            playClickSound();
             selectedCar = car;
             TRUCK_MODELS.forEach(c => {
                 const el = document.getElementById(`car-card-${c.id}`);
@@ -479,6 +571,7 @@
         }
 
         function confirmCarSelection() {
+            playClickSound();
             document.getElementById('screen-select').classList.add('hidden');
             document.getElementById('game-header').classList.remove('hidden');
             document.getElementById('truck-display').classList.remove('hidden');
@@ -657,6 +750,7 @@
             ultimateUsed = true;
             document.getElementById('truck-svg-container').classList.remove('ultimate-ready');
             
+            playWaterSound();
             speakText('超級水龍捲大絕招！出發！');
             showFloatingText(canvas.width / 2, canvas.height / 2, "🌊🌊 超級水龍捲大絕招！ 🌊🌊", "text-sky-300 font-black text-2xl scale-125");
 
@@ -699,6 +793,7 @@
 
         function refillWater() {
             if (!isPlaying) return;
+            playClickSound();
             waterUnits = MAX_WATER;
             renderWaterGauge();
             speakText('水箱補充完成');
@@ -729,6 +824,7 @@
             if (ladderMode) {
                 if (state.type === 'rescue') {
                     animateLadder(startX, startY, targetX, targetY, () => {
+                        playRescueSound();
                         score += state.rescueInfo.pts;
                         document.getElementById('score-text').innerText = score;
                         showFloatingText(targetX, targetY, `❤️ 救援成功 +${state.rescueInfo.pts}`, 'text-emerald-300');
@@ -738,6 +834,7 @@
                     ladderMode = false;
                     updateLadderBtnUI();
                 } else {
+                    playClickSound();
                     showFloatingText(targetX, targetY, `這是火源！請切換噴水`, 'text-red-300');
                 }
                 return;
@@ -745,6 +842,7 @@
 
             if (state.type === 'fire') {
                 if (waterUnits <= 0) {
+                    playClickSound();
                     showFloatingText(targetX, targetY, `💧 水箱沒水了！點右下消防栓補水`, 'text-red-400 font-bold');
                     speakText('水箱沒水了！');
                     renderWaterGauge();
@@ -754,6 +852,7 @@
                 waterUnits--;
                 renderWaterGauge();
 
+                playWaterSound();
                 createWaterJet(startX, startY, targetX, targetY);
                 speakLetter(state.letter);
 
@@ -762,11 +861,13 @@
                 showFloatingText(targetX, targetY, `+10 (${state.letter})`, 'text-amber-300');
                 clearWindow(index);
             } else if (state.type === 'rescue') {
+                playClickSound();
                 showFloatingText(targetX, targetY, `請點右下 🪜 雲梯鈕！`, 'text-amber-300');
             }
         }
 
         function toggleLadderMode() {
+            playClickSound();
             ladderMode = !ladderMode;
             updateLadderBtnUI();
         }
@@ -781,7 +882,7 @@
                 title.innerText = "請點受困窗戶";
                 desc.innerText = "點擊進行救援";
             } else {
-                btn.className = "bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-900 font-black text-xs sm:text-base px-3 sm:px-4 py-2.5 rounded-2xl shadow-xl border-3 border-amber-200 flex items-center gap-1.5 transition active:scale-95";
+                btn.className = "bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-900 font-black text-xs sm:text-base px-3 sm:px-4 py-2.5 rounded-2xl shadow-xl border-3 border-amber-200 flex items-center gap-1 transition active:scale-95";
                 title.innerText = "雲梯模式";
                 desc.innerText = "救援受困目標";
             }
@@ -871,6 +972,7 @@
         }
 
         function returnToHome() {
+            playClickSound();
             isPlaying = false;
             clearInterval(gameTimer);
             if (spawnTimeout) clearTimeout(spawnTimeout);
@@ -1065,6 +1167,7 @@
         }
 
         function restartGame() {
+            playClickSound();
             document.getElementById('screen-gameover').classList.add('hidden');
             document.getElementById('screen-select').classList.remove('hidden');
         }
