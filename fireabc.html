@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>消防小英雄：ABC 救援大冒險</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+            touch-action: manipulation;
+        }
+
+        .fire-anim {
+            animation: firePulse 0.7s infinite alternate ease-in-out;
+        }
+        @keyframes firePulse {
+            0% { transform: scale(0.9) rotate(-3deg); filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.8)); }
+            100% { transform: scale(1.1) rotate(3deg); filter: drop-shadow(0 0 14px rgba(245, 158, 11, 1)); }
+        }
+
+        /* 5層樓 4 戶網格 */
+        .window-grid-5 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        /* 水量不足警示閃爍 */
+        .water-empty-alert {
+            animation: emptyAlert 0.5s infinite alternate;
+        }
+        @keyframes emptyAlert {
+            0% { box-shadow: 0 0 4px #ef4444; border-color: #ef4444; }
+            100% { box-shadow: 0 0 16px #ef4444; border-color: #fca5a5; transform: scale(1.03); }
+        }
+
+        /* 火警緊急警報閃爍 (火源累積達 5 個以上時) */
+        .alarm-danger {
+            animation: alarmFlash 0.4s infinite alternate;
+        }
+        @keyframes alarmFlash {
+            0% { background-color: rgba(220, 38, 38, 0.2); }
+            100% { background-color: rgba(220, 38, 38, 0.65); }
+        }
+
+        .pulse-btn {
+            animation: pulseGlow 1.2s infinite;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(16, 185, 129, 0.7); }
+            50% { transform: scale(1.05); box-shadow: 0 0 25px rgba(16, 185, 129, 1); }
+        }
+
+        /* 大絕招準備狀態：消防車發光的閃爍動畫 */
+        .ultimate-ready {
+            animation: ultimateGlow 0.6s infinite alternate ease-in-out !important;
+            cursor: pointer;
+        }
+        @keyframes ultimateGlow {
+            0% { filter: drop-shadow(0 0 10px #f59e0b) scale(1); }
+            100% { filter: drop-shadow(0 0 28px #ef4444) scale(1.08); }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-1 sm:p-3 overflow-hidden select-none">
+
+    <!-- 主遊戲容器 -->
+    <div id="game-app" class="relative w-full max-w-4xl h-[98vh] max-h-[900px] bg-gradient-to-b from-sky-500 via-sky-300 to-amber-100 rounded-3xl shadow-2xl border-4 border-amber-300 overflow-hidden flex flex-col justify-between">
+        
+        <!-- ==================== 1. 玩家命名畫面 ==================== -->
+        <div id="screen-name" class="absolute inset-0 bg-slate-900/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 text-center">
+            <div class="text-6xl mb-4 animate-bounce">🚒💨</div>
+            <h1 class="text-3xl sm:text-5xl font-black text-amber-300 drop-shadow-md mb-2">消防小英雄</h1>
+            <h2 class="text-xl sm:text-2xl font-bold text-sky-200 mb-6">ABC 噴水救援大冒險</h2>
+            
+            <div class="w-full max-w-sm bg-slate-800 p-6 rounded-2xl border-2 border-slate-600 shadow-xl space-y-4">
+                <label class="block text-lg font-bold text-amber-200">請輸入你的小小消防員名字：</label>
+                <input type="text" id="player-name-input" maxlength="10" placeholder="小英雄名稱..." value="小隊長" class="w-full text-center text-xl font-bold py-3 px-4 rounded-xl text-slate-800 bg-amber-50 border-2 border-amber-400 focus:outline-none focus:ring-4 focus:ring-amber-300">
+                <button onclick="submitName()" class="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-900 font-black text-xl py-3 px-6 rounded-xl shadow-lg transform active:scale-95 transition">
+                    確定準備好了！ ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== 2. 6 國消防車選擇畫面 ==================== -->
+        <div id="screen-select" class="absolute inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex flex-col items-center justify-between p-4 sm:p-6 overflow-hidden">
+            <div class="text-center mt-2 mb-1">
+                <h2 class="text-2xl sm:text-4xl font-black text-amber-300 mb-1">選擇各國專業消防車</h2>
+                <p class="text-slate-300 text-xs sm:text-base">點擊挑選真實考究的隊伍風格！</p>
+            </div>
+
+            <!-- 車輛選單滾動區域 -->
+            <div class="w-full max-w-3xl overflow-y-auto max-h-[62vh] px-2 py-2">
+                <div id="car-options-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <!-- 車輛卡片動態生成 -->
+                </div>
+            </div>
+
+            <div class="w-full flex justify-center pt-2 pb-2">
+                <button onclick="confirmCarSelection()" class="bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-900 font-black text-xl py-3 px-12 rounded-2xl shadow-xl transform active:scale-95 transition border-2 border-emerald-300">
+                    出發救火！ 🔥 🚒
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== 3. 遊戲進行頂部資訊欄 ==================== -->
+        <header id="game-header" class="relative z-20 bg-slate-900/90 border-b-4 border-amber-400 p-2 sm:p-2.5 flex justify-between items-center backdrop-blur-sm hidden">
+            <div class="flex items-center space-x-2">
+                <!-- 返回主選單/命名頁按鈕 -->
+                <button onclick="returnToHome()" title="返回主選單" class="bg-slate-800 hover:bg-slate-700 text-amber-300 p-1.5 sm:p-2 rounded-xl border border-amber-400/50 shadow active:scale-95 transition flex items-center justify-center">
+                    <span class="text-base sm:text-xl">🏠</span>
+                </button>
+
+                <span id="selected-car-flag" class="text-2xl sm:text-3xl">🇹🇼</span>
+                <div>
+                    <span id="display-player-name" class="block text-[10px] sm:text-xs font-bold text-sky-200">英雄隊隊員</span>
+                    <span id="display-car-name" class="text-xs sm:text-sm font-black text-amber-300">台灣化學水槽車</span>
+                </div>
+            </div>
+
+            <!-- 火警警示標籤 -->
+            <div id="danger-alert-badge" class="hidden px-2 py-1 bg-red-600 text-amber-200 text-xs font-black rounded-lg animate-pulse flex items-center gap-1">
+                ⚠️ 火勢擴散中！
+            </div>
+
+            <!-- 倒數計時與分數 -->
+            <div class="flex items-center space-x-2">
+                <div class="bg-red-950/80 border-2 border-red-500 px-2.5 sm:px-3 py-0.5 rounded-xl text-center">
+                    <span class="block text-[9px] text-red-300 font-bold uppercase">TIME</span>
+                    <span id="timer-text" class="text-base sm:text-xl font-black text-red-400">60</span>
+                </div>
+                <div class="bg-amber-950/80 border-2 border-amber-500 px-2.5 sm:px-3 py-0.5 rounded-xl text-center">
+                    <span class="block text-[9px] text-amber-300 font-bold uppercase">SCORE</span>
+                    <span id="score-text" class="text-base sm:text-xl font-black text-amber-400">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ==================== 4. 遊戲主要畫布與大樓戰場 ==================== -->
+        <main id="game-stage" class="relative flex-1 bg-gradient-to-b from-sky-400 via-sky-200 to-amber-100 overflow-hidden flex flex-col justify-between items-center p-2 pt-1">
+            
+            <!-- 5 層樓大樓背景與 20 戶窗戶區域 -->
+            <div id="building-card" class="relative w-full max-w-xl bg-slate-700 border-4 border-slate-900 rounded-3xl p-3 sm:p-4 pb-0 sm:pb-0 shadow-2xl z-10 transition-colors duration-300 my-auto flex flex-col justify-between">
+                <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-amber-200 font-black px-4 py-0.5 rounded-full text-xs sm:text-sm border-2 border-red-400 shadow z-20">
+                    🏢 5層高樓急難救護現場
+                </div>
+                
+                <!-- 20 個大樓窗戶網格 (5層 x 4戶) -->
+                <div id="building-windows" class="window-grid-5 mb-2">
+                    <!-- 窗戶由 JS 動態生成 -->
+                </div>
+
+                <!-- 1樓造型大門美化建築結構 -->
+                <div class="w-full bg-slate-800 border-t-2 border-slate-600 rounded-b-2xl py-1.5 px-3 flex justify-between items-end">
+                    <div class="w-6 h-8 bg-amber-200/80 rounded-t-sm border border-slate-900 flex items-center justify-center text-[10px]">🌿</div>
+                    <!-- 一樓大門 -->
+                    <div class="flex flex-col items-center">
+                        <div class="w-20 sm:w-28 h-2 bg-amber-500 rounded-t border-b border-amber-700"></div>
+                        <div class="w-16 sm:w-24 h-8 sm:h-10 bg-slate-900 border-2 border-amber-400 rounded-t-lg flex justify-center items-center gap-1 shadow-inner">
+                            <div class="w-6 sm:w-9 h-full bg-sky-200/40 border-r border-amber-400 flex items-center justify-center">
+                                <div class="w-1 h-3 bg-amber-300 rounded"></div>
+                            </div>
+                            <div class="w-6 sm:w-9 h-full bg-sky-200/40 flex items-center justify-center">
+                                <div class="w-1 h-3 bg-amber-300 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-6 h-8 bg-amber-200/80 rounded-t-sm border border-slate-900 flex items-center justify-center text-[10px]">🪴</div>
+                </div>
+            </div>
+
+            <!-- 動態畫布 (水柱、水滴粒子與雲梯) -->
+            <canvas id="water-canvas" class="absolute inset-0 z-10 pointer-events-none"></canvas>
+
+            <!-- 底部裝備區：[6格水塔] + [消防車] + [消防栓補水] + [雲梯按鈕] -->
+            <div id="truck-display" class="relative z-20 w-full flex items-center justify-between hidden pointer-events-auto bg-slate-900/60 p-2 rounded-2xl backdrop-blur-md border-2 border-amber-300/40 shadow-xl mt-1">
+                
+                <!-- 左側：6格水量表 -->
+                <div id="water-gauge-container" class="bg-slate-900/90 border-2 border-sky-400 rounded-xl p-1.5 flex flex-col items-center shadow-lg">
+                    <span class="text-[9px] font-black text-sky-200 mb-1">💧水箱</span>
+                    <div id="water-bars" class="flex flex-col-reverse gap-1">
+                        <!-- 6 格水滴動態生成 -->
+                    </div>
+                </div>
+
+                <!-- 中間：消防車 SVG -->
+                <div id="truck-svg-container" onclick="triggerUltimateSkill()" class="w-36 sm:w-56 h-20 sm:h-28 filter drop-shadow-xl cursor-pointer shrink-0 transition-all duration-300 relative rounded-2xl" title="消防車（累積8火可點擊發動大絕招！）">
+                    <!-- 動態渲染車體 SVG -->
+                </div>
+
+                <!-- 右側操作區：消防栓 (補水) 與 雲梯按鈕 -->
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <!-- 消防栓 (補水鈕) -->
+                    <button id="hydrant-btn" onclick="refillWater()" class="bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white p-1.5 sm:p-2 rounded-2xl shadow-xl border-2 border-amber-300 flex flex-col items-center transform active:scale-95 transition group">
+                        <span class="text-xl sm:text-2xl group-hover:bounce">🧑‍🚒 🚰</span>
+                        <span class="text-[9px] sm:text-xs font-black text-amber-200">點我補水</span>
+                    </button>
+
+                    <!-- 雲梯救援鈕 -->
+                    <button id="ladder-btn" onclick="toggleLadderMode()" class="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-900 font-black text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 rounded-2xl shadow-xl border-2 border-amber-200 flex items-center gap-1 transition active:scale-95">
+                        <span class="text-lg sm:text-xl">🪜</span>
+                        <div class="flex flex-col items-start leading-tight">
+                            <span id="ladder-btn-title" class="font-black">雲梯模式</span>
+                            <span id="ladder-btn-desc" class="text-[8px] sm:text-[9px] text-amber-950 font-bold">救援目標</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- ==================== 5. 結算與排行榜 ==================== -->
+        <div id="screen-gameover" class="absolute inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-4 sm:p-6 text-center">
+            <div id="gameover-icon" class="text-5xl mb-2">🎉 🎉 🎉</div>
+            <h2 id="gameover-title" class="text-3xl sm:text-4xl font-black text-amber-300 mb-1">救援任務完成！</h2>
+            <p id="gameover-desc" class="text-sky-200 font-bold text-lg mb-4">太棒了，<span id="result-player-name" class="text-amber-300">英雄</span>！你成功守護了城市！</p>
+            
+            <div class="bg-slate-800 border-2 border-amber-400 rounded-2xl p-4 w-full max-w-md mb-6 shadow-xl">
+                <div class="text-sm text-slate-400 font-bold mb-1">本局最終得分</div>
+                <div id="final-score" class="text-4xl font-black text-amber-400 mb-4">0</div>
+
+                <div class="border-t border-slate-700 pt-3">
+                    <h3 class="text-base font-bold text-amber-200 mb-2 flex items-center justify-center">
+                        🏆 英雄榮譽榜 (TOP 5)
+                    </h3>
+                    <ol id="leaderboard-list" class="space-y-1.5 text-sm text-left font-medium">
+                        <!-- 排行榜動態插入 -->
+                    </ol>
+                </div>
+            </div>
+
+            <button onclick="restartGame()" class="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-900 font-black text-xl py-3 px-8 rounded-2xl shadow-xl transform active:scale-95 transition">
+                🔄 再玩一次
+            </button>
+        </div>
+
+    </div>
+
+    <!-- 遊戲邏輯腳本 -->
+    <script>
+        // --- 1. 車輛真實 SVG 款式與資料庫 ---
+        const TRUCK_MODELS = [
+            { 
+                id: 'tw', 
+                name: '台灣化學水槽車', 
+                country: '🇹🇼 台灣', 
+                desc: '經典亮紅車身，巷弄救火幫手！',
+                svg: `<svg viewBox="0 0 200 100" class="w-full h-full">
+                    <rect x="20" y="35" width="130" height="45" rx="5" fill="#DC2626"/>
+                    <rect x="135" y="45" width="45" height="35" rx="8" fill="#B91C1C"/>
+                    <polygon points="140,48 175,48 165,65 140,65" fill="#93C5FD" opacity="0.8"/>
+                    <rect x="20" y="42" width="160" height="6" fill="#FFFFFF"/>
+                    <rect x="30" y="45" width="40" height="30" rx="3" fill="#9CA3AF" stroke="#4B5563" stroke-width="2"/>
+                    <circle x="155" y="38" r="5" fill="#FBBF24" class="animate-pulse"/>
+                    <circle cx="50" cy="80" r="14" fill="#1F2937"/><circle cx="50" cy="80" r="6" fill="#9CA3AF"/>
+                    <circle cx="110" cy="80" r="14" fill="#1F2937"/><circle cx="110" cy="80" r="6" fill="#9CA3AF"/>
+                    <circle cx="155" cy="80" r="14" fill="#1F2937"/><circle cx="155" cy="80" r="6" fill="#9CA3AF"/>
+                </svg>`
+            },
+            { 
+                id: 'us', 
+                name: '美國美式雙頭雲梯車', 
+                country: '🇺🇸 美國', 
+                desc: '紅白雙色與超長重型梯！',
+                svg: `<svg viewBox="0 0 200 100" class="w-full h-full">
+                    <rect x="15" y="40" width="125" height="40" rx="3" fill="#FFFFFF"/>
+                    <rect x="135" y="40" width="50" height="40" rx="6" fill="#DC2626"/>
+                    <polygon points="145,45 180,45 170,62 145,62" fill="#93C5FD" opacity="0.8"/>
+                    <rect x="20" y="28" width="120" height="10" fill="#9CA3AF" stroke="#374151" stroke-width="2"/>
+                    <line x1="30" y1="28" x2="30" y2="38" stroke="#374151" stroke-width="2"/>
+                    <line x1="60" y1="28" x2="60" y2="38" stroke="#374151" stroke-width="2"/>
+                    <line x1="90" y1="28" x2="90" y2="38" stroke="#374151" stroke-width="2"/>
+                    <line x1="120" y1="28" x2="120" y2="38" stroke="#374151" stroke-width="2"/>
+                    <circle cx="165" cy="35" r="5" fill="#EF4444" class="animate-pulse"/>
+                    <circle cx="40" cy="80" r="13" fill="#1F2937"/><circle cx="40" cy="80" r="5" fill="#E5E7EB"/>
+                    <circle cx="75" cy="80" r="13" fill="#1F2937"/><circle cx="75" cy="80" r="5" fill="#E5E7EB"/>
+                    <circle cx="160" cy="80" r="13" fill="#1F2937"/><circle cx="160" cy="80" r="5" fill="#E5E7EB"/>
+                </svg>`
+            },
+            { 
+                id: 'jp', 
+                name: '日本輕型 Morita 消防車', 
+                country: '🇯🇵 日本', 
+                desc: '經典紅白標誌與高效裝備！',
+                svg: `<svg viewBox="0 0 200 100" class="w-full h-full">
+                    <rect x="25" y="38" width="115" height="42" rx="4" fill="#E11D48"/>
+                    <rect x="135" y="42" width="42" height="38" rx="6" fill="#E11D48"/>
+                    <polygon points="140,46 172,46 165,60 140,60" fill="#BAE6FD" opacity="0.8"/>
+                    <rect x="25" y="55" width="150" height="5" fill="#FFFFFF"/>
+                    <circle cx="80" cy="48" r="6" fill="#374151"/>
+                    <circle cx="155" cy="37" r="6" fill="#EF4444"/>
+                    <circle cx="48" cy="80" r="13" fill="#1F2937"/><circle cx="48" cy="80" r="5" fill="#9CA3AF"/>
+                    <circle cx="152" cy="80" r="13" fill="#1F2937"/><circle cx="152" cy="80" r="5" fill="#9CA3AF"/>
+                </svg>`
+            },
+            { 
+                id: 'de', 
+                name: '德國 Rosenbauer 科技救援車', 
+                country: '🇩🇪 德國', 
+                desc: '日光螢光圖樣與精密科技！',
+                svg: `<svg viewBox="0 0 200 100" class="w-full h-full">
+                    <rect x="20" y="35" width="120" height="45" rx="5" fill="#F59E0B"/>
+                    <rect x="135" y="42" width="45" height="38" rx="8" fill="#D97706"/>
+                    <polygon points="140,46 175,46 165,60 140,60" fill="#93C5FD" opacity="0.8"/>
+                    <line x1="30" y1="80" x2="50" y2="35" stroke="#FFFFFF" stroke-width="4"/>
+                    <line x1="60" y1="80" x2="80" y2="35" stroke="#FFFFFF" stroke-width="4"/>
+                    <line x1="90" y1="80" x2="110" y2="35" stroke="#FFFFFF" stroke-width="4"/>
+                    <circle cx="160" cy="36" r="6" fill="#3B82F6" class="animate-pulse"/>
+                    <circle cx="55" cy="80" r="14" fill="#1F2937"/><circle cx="55" cy="80" r="6" fill="#F59E0B"/>
+                    <circle cx="155" cy="80" r="14" fill="#1F2937"/><circle cx="155" cy="80" r="6" fill="#F59E0B"/>
+                </svg>`
+            },
+            { 
+                id: 'uk', 
+                name: '英國巴騰堡格紋消防車', 
+                country: '🇬🇧 英國', 
+                desc: '高辨識黃紅相間格紋與水箱！',
+                svg: `<svg viewBox="0 0 200 100" class="w-full h-full">
+                    <rect x="20" y="35" width="125" height="45" rx="4" fill="#DC2626"/>
+                    <rect x="140" y="42" width="42" height="38" rx="6" fill="#B91C1C"/>
+                    <polygon points="145,45 178,45 170,60 145,60" fill="#BAE6FD" opacity="0.8"/>
+                    <rect x="20" y="52" width="20" height="12" fill="#FACC15"/>
+                    <rect x="40" y="52" width="20" height="12" fill="#DC2626"/>
+                    <rect x="60" y="52" width="20" height="12" fill="#FACC15"/>
+                    <rect x="80" y="52" width="20" height="12" fill="#DC2626"/>
+                    <rect x="100" y="52" width="20" height="12" fill="#FACC15"/>
+                    <circle cx="160" cy="36" r="5" fill="#3B82F6"/>
+                    <circle cx="50" cy="80" r="13" fill="#1F2937"/><circle cx="50" cy="80" r="5" fill="#E5E7EB"/>
+                    <circle cx="155" cy="80" r="13" fill="#1F2937"/><circle cx="155" cy="80" r="5" fill="#E5E7EB"/>
+                </svg>`
+            },
+            { 
+                id: 'au', 
+                name: '澳洲越野森林消防車', 
+                country: '🇦🇺 澳洲', 
+                desc: '高底盤越野架，應付極端地形！',
+                svg: `<svg viewBox="0 0 200 100" class="w-full h-full">
+                    <rect x="30" y="32" width="110" height="42" rx="4" fill="#15803D"/>
+                    <rect x="135" y="40" width="42" height="34" rx="6" fill="#166534"/>
+                    <polygon points="140,44 172,44 165,58 140,58" fill="#BAE6FD" opacity="0.8"/>
+                    <rect x="25" y="28" width="155" height="6" fill="#FACC15"/>
+                    <line x1="28" y1="28" x2="28" y2="74" stroke="#FACC15" stroke-width="4"/>
+                    <line x1="175" y1="28" x2="175" y2="74" stroke="#FACC15" stroke-width="4"/>
+                    <circle cx="155" cy="34" r="5" fill="#EF4444"/>
+                    <circle cx="55" cy="76" r="16" fill="#1F2937"/><circle cx="55" cy="76" r="6" fill="#D1D5DB"/>
+                    <circle cx="150" cy="76" r="16" fill="#1F2937"/><circle cx="150" cy="76" r="6" fill="#D1D5DB"/>
+                </svg>`
+            }
+        ];
+
+        const RESCUE_TYPES = [
+            { name: '困住的小貓', icon: '🐱', pts: 40 },
+            { name: '受困的民眾', icon: '👤', pts: 50 },
+            { name: '可愛的小狗', icon: '🐶', pts: 40 },
+            { name: '受困的小熊貓', icon: '🐼', pts: 60 }
+        ];
+
+        // 遊戲狀態
+        let playerName = "小隊長";
+        let selectedCar = TRUCK_MODELS[0];
+        let score = 0;
+        let timeLeft = 60;
+        let waterUnits = 6;
+        const MAX_WATER = 6;
+        
+        let gameTimer = null;
+        let spawnTimeout = null;
+        let isPlaying = false;
+        let ladderMode = false;
+
+        // 火源計時與大絕招機制
+        let multiFireStartTime = null;
+        let isFastSpawnMode = false;
+        let ultimateUsed = false; // 本局是否已使用大絕招
+
+        // 5層樓 x 4戶 = 20戶窗戶
+        const TOTAL_WINDOWS = 20;
+        const windowStates = Array(TOTAL_WINDOWS).fill(null); 
+
+        // 粒子與畫布
+        let canvas, ctx;
+        let waterParticles = [];
+
+        window.onload = () => {
+            canvas = document.getElementById('water-canvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            renderCarSelectionGrid();
+            renderBuildingWindows();
+            renderWaterGauge();
+            renderLeaderboard();
+            requestAnimationFrame(updateParticles);
+        };
+
+        function resizeCanvas() {
+            const stage = document.getElementById('game-stage');
+            canvas.width = stage.clientWidth;
+            canvas.height = stage.clientHeight;
+        }
+
+        // --- 2. 介面與選單邏輯 ---
+        function submitName() {
+            const input = document.getElementById('player-name-input').value.trim();
+            if (input) playerName = input;
+            document.getElementById('screen-name').classList.add('hidden');
+            document.getElementById('screen-select').classList.remove('hidden');
+        }
+
+        function renderBuildingWindows() {
+            const grid = document.getElementById('building-windows');
+            grid.innerHTML = '';
+            for (let i = 0; i < TOTAL_WINDOWS; i++) {
+                const win = document.createElement('div');
+                win.id = `window-${i}`;
+                win.className = `relative h-14 sm:h-20 bg-amber-100 border-2 sm:border-4 border-amber-800 rounded-lg overflow-hidden flex items-center justify-center shadow-inner cursor-pointer transition hover:bg-amber-200 active:scale-95`;
+                win.onclick = () => handleWindowClick(i);
+                grid.appendChild(win);
+            }
+        }
+
+        function renderWaterGauge() {
+            const container = document.getElementById('water-bars');
+            container.innerHTML = '';
+            for (let i = 0; i < MAX_WATER; i++) {
+                const bar = document.createElement('div');
+                const isFull = i < waterUnits;
+                bar.className = `w-4 h-3 sm:w-5 sm:h-3.5 rounded-sm transition-all duration-300 ${
+                    isFull ? 'bg-gradient-to-r from-sky-400 to-blue-600 shadow-md scale-100' : 'bg-slate-700/60 scale-90 opacity-40'
+                }`;
+                container.appendChild(bar);
+            }
+
+            const gaugeBox = document.getElementById('water-gauge-container');
+            if (waterUnits === 0) {
+                gaugeBox.classList.add('water-empty-alert');
+            } else {
+                gaugeBox.classList.remove('water-empty-alert');
+            }
+        }
+
+        function renderCarSelectionGrid() {
+            const grid = document.getElementById('car-options-grid');
+            grid.innerHTML = '';
+
+            TRUCK_MODELS.forEach((car, index) => {
+                const isSelected = index === 0;
+                const card = document.createElement('div');
+                card.id = `car-card-${car.id}`;
+                card.className = `cursor-pointer bg-slate-800 border-4 ${isSelected ? 'border-amber-400 bg-slate-700 ring-2 ring-amber-300' : 'border-slate-700'} p-2.5 sm:p-4 rounded-2xl flex flex-col items-center text-center transition hover:border-amber-300 active:scale-95 shadow-lg`;
+                card.onclick = () => selectCar(car);
+
+                card.innerHTML = `
+                    <div class="w-24 sm:w-32 h-16 sm:h-20 mb-1 flex items-center justify-center">${car.svg}</div>
+                    <div class="text-xs sm:text-sm font-bold text-amber-300">${car.country}</div>
+                    <div class="text-sm sm:text-base font-black text-white leading-tight mb-1">${car.name}</div>
+                    <div class="text-[10px] sm:text-xs text-slate-300 leading-snug">${car.desc}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function selectCar(car) {
+            selectedCar = car;
+            TRUCK_MODELS.forEach(c => {
+                const el = document.getElementById(`car-card-${c.id}`);
+                if (c.id === car.id) {
+                    el.classList.add('border-amber-400', 'bg-slate-700', 'ring-2', 'ring-amber-300');
+                    el.classList.remove('border-slate-700');
+                } else {
+                    el.classList.remove('border-amber-400', 'bg-slate-700', 'ring-2', 'ring-amber-300');
+                    el.classList.add('border-slate-700');
+                }
+            });
+        }
+
+        function confirmCarSelection() {
+            document.getElementById('screen-select').classList.add('hidden');
+            document.getElementById('game-header').classList.remove('hidden');
+            document.getElementById('truck-display').classList.remove('hidden');
+
+            document.getElementById('selected-car-flag').innerText = selectedCar.country.split(' ')[0];
+            document.getElementById('display-player-name').innerText = playerName;
+            document.getElementById('display-car-name').innerText = selectedCar.name;
+            document.getElementById('truck-svg-container').innerHTML = selectedCar.svg;
+
+            startGame();
+        }
+
+        // --- 3. 遊戲流程與邏輯 ---
+        function startGame() {
+            score = 0;
+            timeLeft = 60;
+            waterUnits = MAX_WATER;
+            isPlaying = true;
+            ladderMode = false;
+            multiFireStartTime = null;
+            isFastSpawnMode = false;
+            ultimateUsed = false;
+
+            updateLadderBtnUI();
+            renderWaterGauge();
+
+            document.getElementById('score-text').innerText = score;
+            document.getElementById('timer-text').innerText = timeLeft;
+            document.getElementById('danger-alert-badge').classList.add('hidden');
+            document.getElementById('building-card').classList.remove('alarm-danger');
+            
+            for (let i = 0; i < TOTAL_WINDOWS; i++) {
+                clearWindow(i);
+            }
+
+            clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer-text').innerText = timeLeft;
+                checkFireIntensityLogic();
+                if (timeLeft <= 0) endGame(false);
+            }, 1000);
+
+            scheduleNextSpawn(1200);
+        }
+
+        function scheduleNextSpawn(delay) {
+            if (spawnTimeout) clearTimeout(spawnTimeout);
+            spawnTimeout = setTimeout(() => {
+                if (isPlaying) {
+                    spawnTargets();
+                    const nextDelay = isFastSpawnMode ? 1000 : 1600;
+                    scheduleNextSpawn(nextDelay);
+                }
+            }, delay);
+        }
+
+        function checkFireIntensityLogic() {
+            if (!isPlaying) return;
+
+            const activeFiresCount = windowStates.filter(s => s && s.type === 'fire').length;
+
+            // ===== 檢查全毀條件 (20 個窗戶全部起火 -> 燒光光遊戲結束) =====
+            if (activeFiresCount === TOTAL_WINDOWS) {
+                endGame(true); // 觸發燒光光遊戲結束
+                return;
+            }
+
+            // ===== 修正點1：檢查是否達到大絕招啟動條件 (火源 >= 8 且本局尚未發動) =====
+            const truckContainer = document.getElementById('truck-svg-container');
+            if (activeFiresCount >= 8 && !ultimateUsed) {
+                if (!truckContainer.classList.contains('ultimate-ready')) {
+                    truckContainer.classList.add('ultimate-ready');
+                    showFloatingText(canvas.width / 2, canvas.height - 80, "⚡ 大絕招能量充滿！點擊消防車發動！", "text-amber-300 font-black animate-bounce text-xl");
+                    speakText('大絕招能量充滿！點擊消防車！');
+                }
+            } else {
+                truckContainer.classList.remove('ultimate-ready');
+            }
+
+            // ===== 修正點2：火警警報閃爍 (火點低於 5 個時不閃爍；累積 5 個以上才閃爍警示) =====
+            if (activeFiresCount < 5) {
+                document.getElementById('danger-alert-badge').classList.add('hidden');
+                document.getElementById('building-card').classList.remove('alarm-danger');
+                if (activeFiresCount < 2) {
+                    multiFireStartTime = null;
+                    isFastSpawnMode = false;
+                }
+            } else if (activeFiresCount >= 5) {
+                document.getElementById('danger-alert-badge').classList.remove('hidden');
+                document.getElementById('building-card').classList.add('alarm-danger');
+                
+                if (!multiFireStartTime) {
+                    multiFireStartTime = Date.now();
+                } else if (Date.now() - multiFireStartTime >= 3000 && !isFastSpawnMode) {
+                    isFastSpawnMode = true;
+                    speakText('警告！火勢開始蔓延！');
+                    scheduleNextSpawn(100);
+                }
+            }
+        }
+
+        function spawnTargets() {
+            if (!isPlaying) return;
+
+            const emptyIndices = [];
+            windowStates.forEach((state, idx) => {
+                if (!state) emptyIndices.push(idx);
+            });
+
+            if (emptyIndices.length === 0) return;
+
+            const targetIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+            const isRescue = Math.random() < 0.28; 
+
+            if (isRescue) {
+                const rescue = RESCUE_TYPES[Math.floor(Math.random() * RESCUE_TYPES.length)];
+                windowStates[targetIdx] = { type: 'rescue', rescueInfo: rescue };
+            } else {
+                const activeLetters = windowStates.filter(s => s && s.type === 'fire').map(s => s.letter);
+                let letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                while (activeLetters.includes(letter) && activeLetters.length < 20) {
+                    letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                }
+                windowStates[targetIdx] = { type: 'fire', letter: letter };
+            }
+            renderWindowContent(targetIdx);
+            checkFireIntensityLogic();
+        }
+
+        function renderWindowContent(index) {
+            const winEl = document.getElementById(`window-${index}`);
+            const state = windowStates[index];
+
+            if (!state) {
+                winEl.innerHTML = '';
+                return;
+            }
+
+            if (state.type === 'fire') {
+                winEl.innerHTML = `
+                    <div class="relative flex items-center justify-center fire-anim select-none pointer-events-none">
+                        <span class="text-3xl sm:text-4xl filter drop-shadow">🔥</span>
+                        <span class="absolute text-base sm:text-xl font-black text-amber-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">${state.letter}</span>
+                    </div>
+                `;
+            } else if (state.type === 'rescue') {
+                winEl.innerHTML = `
+                    <div class="flex flex-col items-center justify-center animate-bounce select-none pointer-events-none">
+                        <span class="text-2xl sm:text-3xl">${state.rescueInfo.icon}</span>
+                        <span class="bg-red-600 text-white text-[8px] sm:text-[9px] font-bold px-1 py-0 rounded-full shadow">求救!</span>
+                    </div>
+                `;
+            }
+        }
+
+        function clearWindow(index) {
+            windowStates[index] = null;
+            const winEl = document.getElementById(`window-${index}`);
+            if (winEl) winEl.innerHTML = '';
+            checkFireIntensityLogic();
+        }
+
+        // --- 4. 點擊與裝備互動 ---
+        function triggerUltimateSkill() {
+            if (!isPlaying || ultimateUsed) return;
+
+            const activeFireIndices = [];
+            windowStates.forEach((state, idx) => {
+                if (state && state.type === 'fire') activeFireIndices.push(idx);
+            });
+
+            // 必須達到 8 個以上火源才可觸發
+            if (activeFireIndices.length < 8) return;
+
+            ultimateUsed = true;
+            document.getElementById('truck-svg-container').classList.remove('ultimate-ready');
+            
+            speakText('超級水龍捲大絕招！出發！');
+            showFloatingText(canvas.width / 2, canvas.height / 2, "🌊🌊 超級水龍捲大絕招！ 🌊🌊", "text-sky-300 font-black text-2xl scale-125");
+
+            // 建立巨大水柱動畫
+            createMegaWaterTornado();
+
+            // 滅掉最多 16 個火源
+            const clearCount = Math.min(16, activeFireIndices.length);
+            for (let i = 0; i < clearCount; i++) {
+                const targetIdx = activeFireIndices[i];
+                setTimeout(() => {
+                    if (windowStates[targetIdx] && windowStates[targetIdx].type === 'fire') {
+                        score += 10;
+                        document.getElementById('score-text').innerText = score;
+                        clearWindow(targetIdx);
+                    }
+                }, 300 + i * 50);
+            }
+        }
+
+        function createMegaWaterTornado() {
+            const startX = 140;
+            const startY = canvas.height - 50;
+
+            // 產生大量高密度粒子覆蓋全螢幕大樓
+            for (let i = 0; i < 220; i++) {
+                const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+                const speed = Math.random() * 18 + 10;
+                waterParticles.push({
+                    x: startX,
+                    y: startY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 14 + 8,
+                    life: 1.4,
+                    hasSplashed: true
+                });
+            }
+        }
+
+        function refillWater() {
+            if (!isPlaying) return;
+            waterUnits = MAX_WATER;
+            renderWaterGauge();
+            speakText('水箱補充完成');
+
+            const hydrantBtn = document.getElementById('hydrant-btn');
+            hydrantBtn.classList.add('scale-110', 'ring-4', 'ring-sky-300');
+            setTimeout(() => hydrantBtn.classList.remove('scale-110', 'ring-4', 'ring-sky-300'), 300);
+
+            const rect = hydrantBtn.getBoundingClientRect();
+            const stageRect = document.getElementById('game-stage').getBoundingClientRect();
+            createWaterSplash(rect.left + rect.width / 2 - stageRect.left, rect.top - stageRect.top);
+        }
+
+        function handleWindowClick(index) {
+            if (!isPlaying) return;
+            const state = windowStates[index];
+            if (!state) return;
+
+            const winEl = document.getElementById(`window-${index}`);
+            const rect = winEl.getBoundingClientRect();
+            const stageRect = document.getElementById('game-stage').getBoundingClientRect();
+
+            const targetX = rect.left + rect.width / 2 - stageRect.left;
+            const targetY = rect.top + rect.height / 2 - stageRect.top;
+            const startX = 140;
+            const startY = canvas.height - 50;
+
+            if (ladderMode) {
+                if (state.type === 'rescue') {
+                    animateLadder(startX, startY, targetX, targetY, () => {
+                        score += state.rescueInfo.pts;
+                        document.getElementById('score-text').innerText = score;
+                        showFloatingText(targetX, targetY, `❤️ 救援成功 +${state.rescueInfo.pts}`, 'text-emerald-300');
+                        speakText('救援成功');
+                        clearWindow(index);
+                    });
+                    ladderMode = false;
+                    updateLadderBtnUI();
+                } else {
+                    showFloatingText(targetX, targetY, `這是火源！請切換噴水`, 'text-red-300');
+                }
+                return;
+            }
+
+            if (state.type === 'fire') {
+                if (waterUnits <= 0) {
+                    showFloatingText(targetX, targetY, `💧 水箱沒水了！點右下消防栓補水`, 'text-red-400 font-bold');
+                    speakText('水箱沒水了！');
+                    renderWaterGauge();
+                    return;
+                }
+
+                waterUnits--;
+                renderWaterGauge();
+
+                createWaterJet(startX, startY, targetX, targetY);
+                speakLetter(state.letter);
+
+                score += 10;
+                document.getElementById('score-text').innerText = score;
+                showFloatingText(targetX, targetY, `+10 (${state.letter})`, 'text-amber-300');
+                clearWindow(index);
+            } else if (state.type === 'rescue') {
+                showFloatingText(targetX, targetY, `請點右下 🪜 雲梯鈕！`, 'text-amber-300');
+            }
+        }
+
+        function toggleLadderMode() {
+            ladderMode = !ladderMode;
+            updateLadderBtnUI();
+        }
+
+        function updateLadderBtnUI() {
+            const btn = document.getElementById('ladder-btn');
+            const title = document.getElementById('ladder-btn-title');
+            const desc = document.getElementById('ladder-btn-desc');
+
+            if (ladderMode) {
+                btn.className = "bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-900 font-black text-xs sm:text-base px-3 sm:px-4 py-2.5 rounded-2xl shadow-xl border-3 border-emerald-200 pulse-btn flex items-center gap-1.5";
+                title.innerText = "請點受困窗戶";
+                desc.innerText = "點擊進行救援";
+            } else {
+                btn.className = "bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-900 font-black text-xs sm:text-base px-3 sm:px-4 py-2.5 rounded-2xl shadow-xl border-3 border-amber-200 flex items-center gap-1.5 transition active:scale-95";
+                title.innerText = "雲梯模式";
+                desc.innerText = "救援受困目標";
+            }
+        }
+
+        function animateLadder(startX, startY, targetX, targetY, onComplete) {
+            let progress = 0;
+            const duration = 24;
+
+            function drawStep() {
+                progress++;
+                const easeProgress = Math.sin((progress / duration) * (Math.PI / 2));
+                const currentX = startX + (targetX - startX) * easeProgress;
+                const currentY = startY + (targetY - startY) * easeProgress;
+
+                ctx.save();
+                
+                ctx.beginPath();
+                ctx.arc(startX, startY, 16, 0, Math.PI * 2);
+                ctx.fillStyle = '#475569';
+                ctx.fill();
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.strokeStyle = '#b45309';
+                ctx.lineWidth = 18;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 12;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#fef3c7';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+
+                const distance = Math.hypot(currentX - startX, currentY - startY);
+                const stepsCount = Math.floor(distance / 18);
+                const angle = Math.atan2(currentY - startY, currentX - startX);
+                const perpAngle = angle + Math.PI / 2;
+                const rungWidth = 10;
+
+                for (let i = 1; i <= stepsCount; i++) {
+                    const rx = startX + (currentX - startX) * (i * 18 / distance);
+                    const ry = startY + (currentY - startY) * (i * 18 / distance);
+
+                    ctx.strokeStyle = '#78350f';
+                    ctx.lineWidth = 3.5;
+                    ctx.beginPath();
+                    ctx.moveTo(rx + Math.cos(perpAngle) * rungWidth, ry + Math.sin(perpAngle) * rungWidth);
+                    ctx.lineTo(rx - Math.cos(perpAngle) * rungWidth, ry - Math.sin(perpAngle) * rungWidth);
+                    ctx.stroke();
+                }
+
+                ctx.beginPath();
+                ctx.arc(currentX, currentY, 10, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.restore();
+
+                if (progress < duration) {
+                    requestAnimationFrame(drawStep);
+                } else {
+                    setTimeout(() => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        if (onComplete) onComplete();
+                    }, 350);
+                }
+            }
+            drawStep();
+        }
+
+        function returnToHome() {
+            isPlaying = false;
+            clearInterval(gameTimer);
+            if (spawnTimeout) clearTimeout(spawnTimeout);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            document.getElementById('game-header').classList.add('hidden');
+            document.getElementById('truck-display').classList.add('hidden');
+            document.getElementById('screen-select').classList.add('hidden');
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-name').classList.remove('hidden');
+        }
+
+        // --- 5. 動畫粒子與輔助函數 ---
+        function createWaterJet(startX, startY, targetX, targetY) {
+            const count = 45;
+            const mainAngle = Math.atan2(targetY - startY, targetX - startX);
+            const dist = Math.hypot(targetX - startX, targetY - startY);
+
+            for (let i = 0; i < count; i++) {
+                const angle = mainAngle + (Math.random() - 0.5) * 0.18;
+                const speed = (dist / 12) * (0.8 + Math.random() * 0.4);
+                waterParticles.push({
+                    x: startX,
+                    y: startY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 7 + 4,
+                    life: 1.0,
+                    targetX: targetX,
+                    targetY: targetY,
+                    hasSplashed: false
+                });
+            }
+        }
+
+        function createWaterSplash(x, y) {
+            for (let i = 0; i < 20; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                waterParticles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 2,
+                    radius: Math.random() * 4 + 2,
+                    life: 0.8
+                });
+            }
+        }
+
+        function updateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = waterParticles.length - 1; i >= 0; i--) {
+                const p = waterParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.22;
+                p.life -= 0.03;
+
+                if (!p.hasSplashed && p.targetY && p.y <= p.targetY + 20) {
+                    p.hasSplashed = true;
+                    p.vx = (Math.random() - 0.5) * 6;
+                    p.vy = (Math.random() - 0.5) * 4;
+                }
+
+                if (p.life <= 0) {
+                    waterParticles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                
+                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+                grad.addColorStop(0, `rgba(224, 242, 254, ${p.life})`);
+                grad.addColorStop(0.6, `rgba(56, 189, 248, ${p.life * 0.85})`);
+                grad.addColorStop(1, `rgba(3, 105, 161, ${p.life * 0.3})`);
+
+                ctx.fillStyle = grad;
+                ctx.fill();
+            }
+
+            requestAnimationFrame(updateParticles);
+        }
+
+        function showFloatingText(x, y, text, colorClass) {
+            const stage = document.getElementById('game-stage');
+            const el = document.createElement('div');
+            el.className = `absolute z-30 font-black text-lg sm:text-xl drop-shadow-md pointer-events-none transition-all duration-700 transform -translate-x-1/2 ${colorClass}`;
+            el.innerText = text;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+
+            stage.appendChild(el);
+
+            setTimeout(() => {
+                el.style.transform = 'translate(-50%, -35px)';
+                el.style.opacity = '0';
+            }, 50);
+
+            setTimeout(() => el.remove(), 750);
+        }
+
+        function speakLetter(letter) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(letter);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.95;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-TW';
+                utterance.rate = 1.0;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // --- 6. 遊戲結束與排行榜 (包含全部燒光光邏輯) ---
+        function endGame(burnedOut = false) {
+            isPlaying = false;
+            clearInterval(gameTimer);
+            if (spawnTimeout) clearTimeout(spawnTimeout);
+            saveScore(playerName, score);
+
+            document.getElementById('game-header').classList.add('hidden');
+            document.getElementById('truck-display').classList.add('hidden');
+
+            const iconEl = document.getElementById('gameover-icon');
+            const titleEl = document.getElementById('gameover-title');
+            const descEl = document.getElementById('gameover-desc');
+
+            // 判斷是否失敗：全樓起火 或 總分低於 150 分
+            const isFailed = burnedOut || score < 150;
+
+            if (isFailed) {
+                iconEl.innerText = "💥 🏠 🔥";
+                titleEl.innerText = "失敗了，燒光光";
+                titleEl.className = "text-3xl sm:text-4xl font-black text-red-500 mb-1 animate-bounce";
+                
+                if (burnedOut) {
+                    descEl.innerHTML = `噢不！大樓全部被火燒光了！<br><span class="text-amber-300">${playerName}</span>，下次要更快速噴水喔！`;
+                    speakText('大樓全部被燒光光了！繼續加油！');
+                } else {
+                    descEl.innerHTML = `得分只有 <span class="text-red-400 font-black">${score}</span> 分 (未達 150 分)！<br>火勢沒有完全滅熄，大樓燒光光了！加油，再試一次！`;
+                    speakText('失敗了，燒光光！分數不足 150 分，繼續加油！');
+                }
+            } else {
+                iconEl.innerText = "🎉 🎉 🎉";
+                titleEl.innerText = "救援任務完成！";
+                titleEl.className = "text-3xl sm:text-4xl font-black text-amber-300 mb-1";
+                descEl.innerHTML = `太棒了，<span id="result-player-name" class="text-amber-300">${playerName}</span>！你成功守護了城市！`;
+            }
+
+            document.getElementById('final-score').innerText = score;
+            renderLeaderboard();
+            document.getElementById('screen-gameover').classList.remove('hidden');
+        }
+
+        function saveScore(name, newScore) {
+            let leaderboard = JSON.parse(localStorage.getItem('abc_fire_scores') || '[]');
+            leaderboard.push({ name: name, score: newScore, date: new Date().toLocaleDateString() });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 5);
+            localStorage.setItem('abc_fire_scores', JSON.stringify(leaderboard));
+        }
+
+        function renderLeaderboard() {
+            const listEl = document.getElementById('leaderboard-list');
+            const leaderboard = JSON.parse(localStorage.getItem('abc_fire_scores') || '[]');
+
+            if (leaderboard.length === 0) {
+                listEl.innerHTML = `<li class="text-center text-slate-400 py-2">目前尚無紀錄，快成為第一名英雄！</li>`;
+                return;
+            }
+
+            listEl.innerHTML = leaderboard.map((item, index) => {
+                const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+                return `
+                    <li class="flex justify-between items-center bg-slate-700/60 px-3 py-1.5 rounded-lg">
+                        <span class="font-bold text-amber-300">${medals[index]} ${item.name}</span>
+                        <span class="font-black text-white">${item.score} 分</span>
+                    </li>
+                `;
+            }).join('');
+        }
+
+        function restartGame() {
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-select').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
